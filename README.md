@@ -130,7 +130,7 @@ zip -r pillow-layer.zip python
     -   Runtime: **Python 3.9**
     -   Permissions: Use existing role → select `LambdaImageResizerRole`
 4.  Click **Create Function**.
-
+5. Increase ram in Lambda → Function → Configuration → General Configuration for bigger images
 ------------------------------------------------------------------------
 
 ### Step 5: Attach the Pillow Layer
