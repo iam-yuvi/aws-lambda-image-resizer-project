@@ -1,40 +1,27 @@
 import boto3
+import os
 from PIL import Image
-import io
+import tempfile
 
 s3 = boto3.client('s3')
 
 def lambda_handler(event, context):
-    # Extract bucket and object info
-    bucket = event['Records'][0]['s3']['bucket']['name']
-    source_key = event['Records'][0]['s3']['object']['key']
+    bucket_name = event['Records'][0]['s3']['bucket']['name']
+    key = event['Records'][0]['s3']['object']['key']
 
-    # Skip already resized images
-    if source_key.startswith('resized/'):
-        print("Skipping resized image.")
+    # Process only images from 'uploads/' folder
+    if not key.startswith('uploads/'):
         return
 
-    # Define destination key (uploads → resized)
-    resized_key = source_key.replace('uploads/', 'resized/')
+    download_path = os.path.join(tempfile.gettempdir(), os.path.basename(key))
+    upload_key = key.replace('uploads/', 'resized/')
+    upload_path = os.path.join(tempfile.gettempdir(), os.path.basename(upload_key))
 
-    # Download image from S3
-    image_obj = s3.get_object(Bucket=bucket, Key=source_key)
-    image_data = image_obj['Body'].read()
+    s3.download_file(bucket_name, key, download_path)
 
-    # Open and resize image
-    image = Image.open(io.BytesIO(image_data))
-    image = image.resize((300, 300))
+    with Image.open(download_path) as img:
+        img.thumbnail((300, 300))
+        img.save(upload_path)
 
-    # Save resized image to buffer
-    buffer = io.BytesIO()
-    image.save(buffer, format=image.format)
-    buffer.seek(0)
-
-    # Upload resized image to 'resized/' folder
-    s3.put_object(Bucket=bucket, Key=resized_key, Body=buffer)
-
-    print(f"✅ Resized image saved as {resized_key}")
-    return {
-        'statusCode': 200,
-        'body': f"Image resized and saved as {resized_key}"
-    }
+    s3.upload_file(upload_path, bucket_name, upload_key)
+    print(f"Resized image uploaded to {upload_key}")
